@@ -40,7 +40,7 @@ model = args.model.capitalize()
 # Get score and suggested mutation
 score_heatmap, suggested_mutation = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
                                                                             model, 
-                                                                            scoring_mirror=args.scoring_mirror, 
+                                                                            scoring_mirror=args.use_scoring_mirror, 
                                                                             batch_size_inference=args.batch, 
                                                                             max_number_positions_per_heatmap=args.max_pos, 
                                                                             num_workers=args.num_workers, 
