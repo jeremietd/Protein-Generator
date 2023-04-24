@@ -1,5 +1,6 @@
 import torch
 from torch.distributions import Categorical
+import pandas as pd
 
 class temperature_sampler:
   def __init__(self, temperature: float = 1.0):
@@ -8,7 +9,7 @@ class temperature_sampler:
     dist = Categorical(logits=logits / self.temperature)
     return dist.sample()
 
-def top_k_sampling(k, scores: DataFrame, sampler = temperature_sampler(temperature=1.0)):
+def top_k_sampling(k, scores: pd.DataFrame, sampler = temperature_sampler(temperature=1.0)):
   raw_score = torch.tensor(scores['avg_score'].values)
   zeros = raw_score.new_ones(raw_score.shape) * float('-inf')
   values, indices = torch.topk(raw_score, k=k, dim=-1)
