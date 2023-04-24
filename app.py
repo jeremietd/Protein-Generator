@@ -91,7 +91,7 @@ def suggest_mutations(scores):
   positive_scores = scores[scores.avg_score > 0]
   positive_scores_position_avg = positive_scores.groupby(['position']).mean(numeric_only=True)
   top_positions=list(positive_scores_position_avg.sort_values(by=['avg_score'],ascending=False).head(5).index.astype(str))
-  position_recos = "The positions with the highest average fitness increase are (only positions with at least one fitness increase are considered):\n {}".format(", ".join(top_positions))
+  position_recos = "The positions with the highest average fitness increase are (only positions with at least one fitness increase are considered):\n {} \n\n".format(", ".join(top_positions))
   return print(intro_message+mutant_recos+position_recos)
 
 def check_valid_mutant(sequence,mutant,AA_vocab=AA_vocab):

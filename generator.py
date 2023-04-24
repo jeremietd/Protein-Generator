@@ -3,6 +3,7 @@ import argparse
 from transformers import PreTrainedTokenizerFast
 import pandas as pd
 import os
+from sampling import top_k_sampling, temperature_sampler
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sequence', type=str, choices=["brca1", "adrb2", "p53"], default='brca1')
@@ -58,6 +59,8 @@ pd.DataFrame(scores, columns =['score_scores']).to_csv(save_path_scores)
 print(f"Results saved to {save_path_scores}")
 
 # 2. Sample mutation from suggested mutation scores
+mutation = top_k_sampling(5, scores, temperature_sampler(1.0))
+print("Sampled mutation: ", mutation)
 
 # 3. Get Mutated Sequence
-# mutated_sequence = app.get_mutated_sequence(seq, suggested_mutation)
+# mutated_sequence = app.get_mutated_sequence(seq, mutation)

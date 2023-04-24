@@ -1,10 +1,25 @@
 import torch
+from torch.distributions import Categorical
 
+class temperature_sampler:
+  def __init__(self, temperature: float = 1.0):
+    self.temperature = temperature
+  def __call__(self, logits: torch.Tensor):
+    dist = Categorical(logits=logits / self.temperature)
+    return dist.sample()
 
-def top_k_sampling(k, scores):
-  return None
+def top_k_sampling(k, scores: DataFrame, sampler = temperature_sampler(temperature=1.0)):
+  raw_score = torch.tensor(scores['avg_score'].values)
+  zeros = raw_score.new_ones(raw_score.shape) * float('-inf')
+  values, indices = torch.topk(raw_score, k=k, dim=-1)
+  zeros.scatter_(-1, indices, values)
+  
+  sampled_score = sampler(zeros)
+  index = (zeros == sampled_score).nonzero(as_tuple=True)[0]
 
-def typical_sampling(scores, filter_value: float = -float("Inf"), mass: float = 0.9, min_tokens_to_keep: int = 1):
+  return scores['mutant'][index]
+
+def typical_sampling(scores, filter_value: float = float("-inf"), mass: float = 0.9, min_tokens_to_keep: int = 1):
   # calculate entropy
   normalized = torch.nn.functional.log_softmax(scores, dim=-1)
   p = torch.exp(normalized)
