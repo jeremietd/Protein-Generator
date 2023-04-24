@@ -17,7 +17,7 @@ parser.add_argument('--num_workers', type=int, default=10, help='Number of worke
 args = parser.parse_args()
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
-tokenizer = PreTrainedTokenizerFast(tokenizer_file="./tranception/utils/tokenizers/Basic_tokenizer",
+tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "tranception/utils/tokenizers/Basic_tokenizer"),
                                                 unk_token="[UNK]",
                                                 sep_token="[SEP]",
                                                 pad_token="[PAD]",
