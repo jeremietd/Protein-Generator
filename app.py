@@ -80,7 +80,7 @@ def create_scoring_matrix_visual(scores,sequence,image_index=0,mutation_range_st
   return image_path
 
 def suggest_mutations(scores):
-  # intro_message = "The following mutations may be sensible options to improve fitness: \n\n"
+  intro_message = "The following mutations may be sensible options to improve fitness: \n\n"
   #Best mutants
   top_mutants=list(scores.sort_values(by=['avg_score'],ascending=False).head(5).mutant)
   top_mutants_fitness=list(scores.sort_values(by=['avg_score'],ascending=False).head(5).avg_score)
