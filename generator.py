@@ -3,7 +3,7 @@ import argparse
 from transformers import PreTrainedTokenizerFast
 import pandas as pd
 import os
-from .util import add_mutation
+from util import add_mutation
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sequence', type=str, choices=["brca1", "adrb2", "p53"], default='brca1')

@@ -8,15 +8,16 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
-# AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
-# tokenizer = PreTrainedTokenizerFast(tokenizer_file="./tranception/utils/tokenizers/Basic_tokenizer",
-#                                                 unk_token="[UNK]",
-#                                                 sep_token="[SEP]",
-#                                                 pad_token="[PAD]",
-#                                                 cls_token="[CLS]",
-#                                                 mask_token="[MASK]"
-#                                             )
+AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
+tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "tranception/utils/tokenizers/Basic_tokenizer"),
+                                                unk_token="[UNK]",
+                                                sep_token="[SEP]",
+                                                pad_token="[PAD]",
+                                                cls_token="[CLS]",
+                                                mask_token="[MASK]"
+                                            )
 
 def create_all_single_mutants(sequence,AA_vocab=AA_vocab,mutation_range_start=None,mutation_range_end=None):
   all_single_mutants={}
