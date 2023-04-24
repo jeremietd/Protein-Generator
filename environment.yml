@@ -6,7 +6,7 @@ dependencies:
 - python=3.8
 # - pip
 - seaborn~=0.11.2
-- matplotlib
+- matplotlib=3.2.2
 - pytorch=1.13.1
 - cudatoolkit=11.7
 - transformers=4.17
