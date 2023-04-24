@@ -10,7 +10,7 @@ parser.add_argument('--sequence', type=str, choices=["brca1", "adrb2", "p53"], d
 parser.add_argument('--mutation_start', type=int, default=None)
 parser.add_argument('--mutation_end', type=int, default=None)
 parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], default='small')
-parser.add_argument('--scoring_mirror', action='store_true', help='Whether to score the sequence from both ends')
+parser.add_argument('--use_scoring_mirror', action='store_true', help='Whether to score the sequence from both ends')
 parser.add_argument('--batch', type=int, default=20, help='Batch size for scoring')
 parser.add_argument('--max_pos', type=int, default=50, help='Maximum number of positions per heatmap')
 parser.add_argument('--num_workers', type=int, default=10, help='Number of workers for dataloader')
