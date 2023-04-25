@@ -1,6 +1,7 @@
 import torch
 from torch.distributions import Categorical
 import pandas as pd
+import math
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -10,8 +11,10 @@ class temperature_sampler:
   def __call__(self, logits: torch.Tensor):
     dist = Categorical(logits=logits / self.temperature)
     return dist.sample()
-    
+
 # Modified version of sampling for DataFrame containing probabilities
+
+# Top-k sampling
 def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(temperature=1.0)):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
@@ -23,6 +26,7 @@ def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(t
 
   return scores['mutant'][sampled_score]
 
+# Typical sampling
 def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperature_sampler(temperature=1.0)):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
@@ -47,6 +51,7 @@ def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperat
   sampled_score = sampler(raw_score).item()
   return scores['mutant'][sampled_score]
 
+# Top-p sampling
 def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler(temperature=1.0)):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
@@ -65,6 +70,26 @@ def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler
   # return res
   return scores['mutant'][sampled_score]
 
+# Mirostat Helper Functions
+def estimate_s(prob):
+  result = 0
+  num = 0
+  den = 0
+  for i in range(100):
+    b = prob[i]/prob[i+1]
+    t = (i+2)/(i+1)
+    num += math.log(b)*math.log(t)
+    den += math.log(t)**2
+  return num/den
+
+
+def compute_k(n,s,tau):
+    eps = s-1
+    k = ((eps*(2**(tau)))/(1-n**(-eps)))**(1/s)
+    k = round(k)
+    return k
+
+# Mirostat Sampling
 def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperature_sampler(temperature=1.0), vocab=AA_vocab):
   max_surprise = 2*tau
   n = len(vocab)
