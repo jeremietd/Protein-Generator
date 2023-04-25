@@ -44,6 +44,7 @@ mutation_start = args.mutation_start
 mutation_end = args.mutation_end
 model = args.model.capitalize()
 sequence_num = args.sequence_num
+evolution_cycles = args.evolution_cycles
 generated_sequence = []
 sequence_iteration = []
 generated_sequence_name = []
@@ -83,34 +84,18 @@ while len(generated_sequence) < sequence_num:
         sampling_threshold = args.sampling_threshold
 
         if sampling_strat == 'top_k':
-            assert isinstance(sampling_threshold, int), "Sampling threshold must be an integer for top-k sampling"
-            mutation = top_k_sampling(scores, k=sampling_threshold, sampler=final_sampler)
+            mutation = top_k_sampling(scores, k=int(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'top_p':
-            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for top-p sampling"
-            mutation = top_p_sampling(scores, p=sampling_threshold, sampler=final_sampler)
+            mutation = top_p_sampling(scores, p=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'typical':
-            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for typical sampling"
-            mutation = typical_sampling(scores, mass=sampling_threshold, sampler=final_sampler)
+            mutation = typical_sampling(scores, mass=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'mirostat':
-            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for mirostat sampling"
-            mutation = mirostat_sampling(scores, tau=sampling_threshold, sampler=final_sampler)
+            mutation = mirostat_sampling(scores, tau=float(sampling_threshold), sampler=final_sampler)
         else:
             raise ValueError(f"Sampling strategy {sampling_strat} not supported")
 
-        # topk_mutation = top_k_sampling(scores, k=5, sampler=temp_sampler)
-        # print("Top-K sampled mutation: ", topk_mutation)
-
-        # topp_mutation = top_p_sampling(scores, p=0.9, sampler=temp_sampler)
-        # print("Top-P sampled mutation: ", topp_mutation)
-
-        # typical_mutation = typical_sampling(scores, mass=0.95, sampler=temp_sampler)
-        # print("Typically sampled mutation: ", typical_mutation)
-
-        # mirostat_mutation = mirostat_sampling(scores, tau=3.0, sampler=temp_sampler)
-        # print("Mirostat sampled mutation: ", mirostat_mutation)
-
         # 3. Get Mutated Sequence
-        mutated_sequence = app.get_mutated_sequence(seq, mutation)
+        mutated_sequence = app.get_mutated_protein(seq, mutation)
 
         print("Original Sequence: ", seq)
         print("Mutation: ", mutation)
