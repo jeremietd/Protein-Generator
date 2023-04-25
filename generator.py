@@ -86,6 +86,7 @@ while len(generated_sequence) < sequence_num:
         if sampling_strat == 'top_k':
             mutation = top_k_sampling(scores, k=int(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'top_p':
+            assert float(sampling_threshold) <= 1.0 and float(sampling_threshold) > 0, "Top-p sampling threshold must be between 0 and 1"
             mutation = top_p_sampling(scores, p=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'typical':
             mutation = typical_sampling(scores, mass=float(sampling_threshold), sampler=final_sampler)
