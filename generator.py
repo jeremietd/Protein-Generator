@@ -6,16 +6,23 @@ import os
 from sampling import top_k_sampling, temperature_sampler, top_p_sampling, typical_sampling, mirostat_sampling
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--sequence', type=str, choices=["brca1", "adrb2", "p53"], default='brca1')
-parser.add_argument('--mutation_start', type=int, default=None)
-parser.add_argument('--mutation_end', type=int, default=None)
-parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], default='small')
+parser.add_argument('--sequence', type=str, choices=["brca1", "adrb2", "p53"], default='brca1', help='Sequence to do mutation or DE')
+parser.add_argument('--mutation_start', type=int, default=None, help='Mutation start position')
+parser.add_argument('--mutation_end', type=int, default=None, help='Mutation end position')
+parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], default='small', help='Tranception model size')
 parser.add_argument('--use_scoring_mirror', action='store_true', help='Whether to score the sequence from both ends')
 parser.add_argument('--batch', type=int, default=20, help='Batch size for scoring')
 parser.add_argument('--max_pos', type=int, default=50, help='Maximum number of positions per heatmap')
 parser.add_argument('--num_workers', type=int, default=4, help='Number of workers for dataloader')
 parser.add_argument('--with_heatmap', action='store_true', help='Whether to generate heatmap')
 parser.add_argument('--save_scores', action='store_true', help='Whether to save scores')
+
+parser.add_argument('--sampling_method', type=str, choices=['top_k', 'top_p', 'typical', 'mirostat'], required=True, help='Sampling method')
+parser.add_argument('--sampling_threshold', type=float, required=True, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
+parser.add_argument('--temperature', type=float, default=1.0, help='Temperature for final sampling; 1.0 equals to random sampling')
+parser.add_argument('--sequence_num', type=int, required=True, help='Number of sequences to generate')
+parser.add_argument('--evolution_cycles', type=int, required=True, help='Number of evolution cycles per generated sequence')
+parser.add_argument('--output_name', type=str, required=True, help='Output file name (Just name with no extension!)')
 args = parser.parse_args()
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
@@ -36,44 +43,87 @@ seq = example_sequence.get(args.sequence.upper() + "_HUMAN")
 mutation_start = args.mutation_start
 mutation_end = args.mutation_end
 model = args.model.capitalize()
+sequence_num = args.sequence_num
+generated_sequence = []
+sequence_iteration = []
+generated_sequence_name = []
 
-# 1. Get scores of suggested mutation
-score_heatmap, suggested_mutation, scores = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
-                                                                            model, 
-                                                                            scoring_mirror=args.use_scoring_mirror, 
-                                                                            batch_size_inference=args.batch, 
-                                                                            max_number_positions_per_heatmap=args.max_pos, 
-                                                                            num_workers=args.num_workers, 
-                                                                            AA_vocab=AA_vocab, 
-                                                                            tokenizer=tokenizer,
-                                                                            with_heatmap=args.with_heatmap)
+while len(generated_sequence) < seqeunce_num:
 
-# Save heatmap
-if args.with_heatmap and args.save_scores:
-    save_path_heatmap = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output_heatmap.csv")
-    pd.DataFrame(score_heatmap, columns =['score_heatmap']).to_csv(save_path_heatmap)
-    print(f"Results saved to {save_path_heatmap}")
+    iteration = 0
 
-# Save scores
-if args.save_scores:
-    save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output_scores.csv")
-    pd.DataFrame(scores, columns =['score_scores']).to_csv(save_path_scores)
-    print(f"Results saved to {save_path_scores}")
+    while iteration < evolution_cycles:
+        print(f"Sequence {len(generated_sequence) + 1} of {sequence_num}, Iteration {iteration + 1} of {evolution_cycles}")
+        # 1. Get scores of suggested mutation
+        score_heatmap, suggested_mutation, scores = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
+                                                                                    model, 
+                                                                                    scoring_mirror=args.use_scoring_mirror, 
+                                                                                    batch_size_inference=args.batch, 
+                                                                                    max_number_positions_per_heatmap=args.max_pos, 
+                                                                                    num_workers=args.num_workers, 
+                                                                                    AA_vocab=AA_vocab, 
+                                                                                    tokenizer=tokenizer,
+                                                                                    with_heatmap=args.with_heatmap)
 
-# 2. Sample mutation from suggested mutation scores
-temp_sampler = temperature_sampler(1.0)
+        # Save heatmap
+        if args.with_heatmap and args.save_scores:
+            save_path_heatmap = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output_heatmap.csv")
+            pd.DataFrame(score_heatmap, columns =['score_heatmap']).to_csv(save_path_heatmap)
+            print(f"Results saved to {save_path_heatmap}")
 
-topk_mutation = top_k_sampling(scores, k=5, sampler=temp_sampler)
-print("Top-K sampled mutation: ", topk_mutation)
+        # Save scores
+        if args.save_scores:
+            save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output_scores.csv")
+            pd.DataFrame(scores, columns =['score_scores']).to_csv(save_path_scores)
+            print(f"Results saved to {save_path_scores}")
 
-topp_mutation = top_p_sampling(scores, p=0.9, sampler=temp_sampler)
-print("Top-P sampled mutation: ", topp_mutation)
+        # 2. Sample mutation from suggested mutation scores
+        final_sampler = temperature_sampler(args.temperature)
+        sampling_strat = args.sampling_method
+        sampling_threshold = args.sampling_threshold
 
-typical_mutation = typical_sampling(scores, mass=0.95, sampler=temp_sampler)
-print("Typically sampled mutation: ", typical_mutation)
+        if sampling_strat == 'top_k':
+            assert isinstance(sampling_threshold, int), "Sampling threshold must be an integer for top-k sampling"
+            mutation = top_k_sampling(scores, k=sampling_threshold, sampler=final_sampler)
+        elif sampling_strat == 'top_p':
+            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for top-p sampling"
+            mutation = top_p_sampling(scores, p=sampling_threshold, sampler=final_sampler)
+        elif sampling_strat == 'typical':
+            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for typical sampling"
+            mutation = typical_sampling(scores, mass=sampling_threshold, sampler=final_sampler)
+        elif sampling_strat == 'mirostat':
+            assert isinstance(sampling_threshold, float), "Sampling threshold must be a float for mirostat sampling"
+            mutation = mirostat_sampling(scores, tau=sampling_threshold, sampler=final_sampler)
+        else:
+            raise ValueError(f"Sampling strategy {sampling_strat} not supported")
 
-mirostat_mutation = mirostat_sampling(scores, tau=3.0, sampler=temp_sampler)
-print("Typically sampled mutation: ", mirostat_mutation)
+        # topk_mutation = top_k_sampling(scores, k=5, sampler=temp_sampler)
+        # print("Top-K sampled mutation: ", topk_mutation)
 
-# 3. Get Mutated Sequence
-# mutated_sequence = app.get_mutated_sequence(seq, mutation)
+        # topp_mutation = top_p_sampling(scores, p=0.9, sampler=temp_sampler)
+        # print("Top-P sampled mutation: ", topp_mutation)
+
+        # typical_mutation = typical_sampling(scores, mass=0.95, sampler=temp_sampler)
+        # print("Typically sampled mutation: ", typical_mutation)
+
+        # mirostat_mutation = mirostat_sampling(scores, tau=3.0, sampler=temp_sampler)
+        # print("Typically sampled mutation: ", mirostat_mutation)
+
+        # 3. Get Mutated Sequence
+        mutated_sequence = app.get_mutated_sequence(seq, mutation)
+
+        seq = mutated_sequence
+
+        iteration += 1
+
+    generated_sequence.append(mutated_sequence)
+    sequence_iteration.append(iteration)
+    seq_name = '{}_{}x_{}'.format(args.sequence, iteration, len(generated_sequence))
+    generated_sequence_name.append(seq_name)
+    
+
+generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration})
+# output_name = '{}_{}-{}_{}seq_{}x'.format(args.sequence, args.sampling_method, args.sampling_threshold, args.sequence_num, args.evolution_cycles)
+save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.csv".format(args.output_name))
+generated_sequence_df.to_csv(save_path)
+print(f"Generated sequences saved to {save_path}")
