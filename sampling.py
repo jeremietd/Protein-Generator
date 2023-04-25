@@ -2,13 +2,16 @@ import torch
 from torch.distributions import Categorical
 import pandas as pd
 
+AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
+
 class temperature_sampler:
   def __init__(self, temperature: float = 1.0):
     self.temperature = temperature
   def __call__(self, logits: torch.Tensor):
     dist = Categorical(logits=logits / self.temperature)
     return dist.sample()
-
+    
+# Modified version of sampling for DataFrame containing probabilities
 def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(temperature=1.0)):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
@@ -60,4 +63,27 @@ def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler
   sampled_score = sampler(raw_score).item()
 
   # return res
+  return scores['mutant'][sampled_score]
+
+def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperature_sampler(temperature=1.0), vocab=AA_vocab):
+  max_surprise = 2*tau
+  n = len(vocab)
+
+  raw_score = torch.tensor(scores['avg_score'].values)
+  raw_score = torch.nan_to_num(raw_score, float("-inf"))
+
+  sorted_logits, sorted_indices = torch.sort(raw_score, descending=True)
+  listed_prob = sorted_logits.tolist()
+
+  # Estimate s
+  s = estimate_s(listed_prob)
+  # Compute k
+  k = compute_k(n,s,max_surprise)+1
+
+  sorted_logits = sorted_logits[0:k]
+  sorted_indices = sorted_indices[0:k]
+  scores = scores.iloc[0:k, :]
+  prob_topk = sorted_logits
+  sampled_score = sampler(prob_topk).item()
+
   return scores['mutant'][sampled_score]
