@@ -48,7 +48,7 @@ generated_sequence = []
 sequence_iteration = []
 generated_sequence_name = []
 
-while len(generated_sequence) < seqeunce_num:
+while len(generated_sequence) < sequence_num:
 
     iteration = 0
 
@@ -107,10 +107,14 @@ while len(generated_sequence) < seqeunce_num:
         # print("Typically sampled mutation: ", typical_mutation)
 
         # mirostat_mutation = mirostat_sampling(scores, tau=3.0, sampler=temp_sampler)
-        # print("Typically sampled mutation: ", mirostat_mutation)
+        # print("Mirostat sampled mutation: ", mirostat_mutation)
 
         # 3. Get Mutated Sequence
         mutated_sequence = app.get_mutated_sequence(seq, mutation)
+
+        print("Original Sequence: ", seq)
+        print("Mutation: ", mutation)
+        print("Mutated Sequence: ", mutated_sequence)
 
         seq = mutated_sequence
 
