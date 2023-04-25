@@ -59,8 +59,16 @@ pd.DataFrame(scores, columns =['score_scores']).to_csv(save_path_scores)
 print(f"Results saved to {save_path_scores}")
 
 # 2. Sample mutation from suggested mutation scores
-mutation = top_k_sampling(5, scores, temperature_sampler(1.0))
-print("Sampled mutation: ", mutation)
+sampler = temperature_sampler(1.0)
+
+topk_mutation = top_k_sampling(scores, k=5, sampler)
+print("Top-K sampled mutation: ", topk_mutation)
+
+topp_mutation = top_p_sampling(scores, p=0.9, sampler)
+print("Top-P sampled mutation: ", topp_mutation)
+
+typical_mutation = typical_sampling(scores, mass=0.95, sampler)
+print("Typically sampled mutation: ", typical_mutation)
 
 # 3. Get Mutated Sequence
 # mutated_sequence = app.get_mutated_sequence(seq, mutation)
