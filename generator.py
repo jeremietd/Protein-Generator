@@ -93,6 +93,7 @@ while len(generated_sequence) < sequence_num:
             mutation = mirostat_sampling(scores, tau=float(sampling_threshold), sampler=final_sampler)
         else:
             raise ValueError(f"Sampling strategy {sampling_strat} not supported")
+        print(f"Using {sampling_strat} sampling strategy with threshold {sampling_threshold}")
 
         # 3. Get Mutated Sequence
         mutated_sequence = app.get_mutated_protein(seq, mutation)
