@@ -3,6 +3,7 @@ import argparse
 from transformers import PreTrainedTokenizerFast
 import pandas as pd
 import os
+import util
 from sampling import top_k_sampling, temperature_sampler, top_p_sampling, typical_sampling, mirostat_sampling
 
 parser = argparse.ArgumentParser()
@@ -114,6 +115,6 @@ while len(generated_sequence) < sequence_num:
 
 generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration})
 # output_name = '{}_{}-{}_{}seq_{}x'.format(args.sequence, args.sampling_method, args.sampling_threshold, args.sequence_num, args.evolution_cycles)
-save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.csv".format(args.output_name))
-generated_sequence_df.to_csv(save_path)
+save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.fasta".format(args.output_name))
+util.save_as_fasta(generated_sequence_df, save_path)
 print(f"Generated sequences saved to {save_path}")
