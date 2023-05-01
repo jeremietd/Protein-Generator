@@ -89,6 +89,7 @@ while len(generated_sequence) < sequence_num:
             assert float(sampling_threshold) <= 1.0 and float(sampling_threshold) > 0, "Top-p sampling threshold must be between 0 and 1"
             mutation = top_p_sampling(scores, p=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'typical':
+            assert float(sampling_threshold) < 1.0 and float(sampling_threshold) > 0, "Typical sampling threshold must be between 0 and 1"
             mutation = typical_sampling(scores, mass=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'mirostat':
             mutation = mirostat_sampling(scores, tau=float(sampling_threshold), sampler=final_sampler)
