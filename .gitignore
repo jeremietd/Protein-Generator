@@ -7,4 +7,4 @@ tranception/*.pyc
 tranception/utils/__pycache__
 tranception/utils/*.pyc
 
-generated_sequence/*.fasta
+generated_sequence/**/*.fasta
