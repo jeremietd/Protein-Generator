@@ -20,7 +20,7 @@ tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(
                                             )
 
 def create_all_single_mutants(sequence,AA_vocab=AA_vocab,mutation_range_start=None,mutation_range_end=None):
-  all_single_mutants={}
+  all_single_mutants= {}
   sequence_list=list(sequence)
   if mutation_range_start is None: mutation_range_start=1
   if mutation_range_end is None: mutation_range_end=len(sequence)
@@ -34,6 +34,38 @@ def create_all_single_mutants(sequence,AA_vocab=AA_vocab,mutation_range_start=No
   all_single_mutants.reset_index(inplace=True)
   all_single_mutants.columns = ['mutant','mutated_sequence']
   return all_single_mutants
+
+def generate_n_extra_mutations(DMS_data: pd.DataFrame, extra_mutations: int, AA_vocab=AA_vocab, mutation_range_start=None, mutation_range_end=None):
+    variants = DMS_data
+    seq = variants["mutated_sequence"][0]
+    assert extra_mutations > 0, "Number of mutations must be greater than 0."
+    if mutation_range_start is None: mutation_range_start=1
+    if mutation_range_end is None: mutation_range_end=len(seq)
+    count = 0
+    while count < extra_mutations:
+        print(f"Creating extra mutation {count+1}")
+        new_variants = []
+        for index, variant in variants.iterrows():
+            for i in range(mutation_range_start-1, mutation_range_end):
+                for aa in AA_vocab:
+                    if aa != variant["mutated_sequence"][i]:
+                        new_variant = {
+                            "mutated_sequence": variant["mutated_sequence"][:i] + aa + variant["mutated_sequence"][i+1:],
+                            "mutant": variant["mutant"] + f":{variant['mutated_sequence'][i]}{i+1}{aa}"
+                        }
+                        new_variants.append(new_variant)
+        count += 1
+        variants = pd.DataFrame(new_variants)
+    return variants[['mutant','mutated_sequence']]
+
+def trim_DMS(DMS_data:pd.DataFrame, sampled_mutants:pd.DataFrame, mutation_rounds:int):
+  for mutation in range(2):
+    if mutation == 0:
+      DMS_data[f'past_mutation'] = DMS_data["mutant"].map(lambda x: ":".join(x.split(":", mutation_rounds-1)[:mutation_rounds-1]))
+    else:
+      DMS_data[f'current_mutation'] = DMS_data["mutant"].map(lambda x: ":".join(x.split(":", mutation_rounds-1)[mutation_rounds-1:]))
+  trimmed_variants = DMS_data[DMS_data[f'past_mutation'].isin(sampled_mutants['mutant'])].reset_index(drop=True)
+  return trimmed_variants[['mutant','mutated_sequence']]
 
 def create_scoring_matrix_visual(scores,sequence,image_index=0,mutation_range_start=None,mutation_range_end=None,AA_vocab=AA_vocab,annotate=True,fontsize=20):
   filtered_scores=scores.copy()
@@ -79,7 +111,7 @@ def create_scoring_matrix_visual(scores,sequence,image_index=0,mutation_range_st
 
   return image_path
 
-def suggest_mutations(scores):
+def suggest_mutations(scores, multi=False):
   intro_message = "The following mutations may be sensible options to improve fitness: \n\n"
   #Best mutants
   top_mutants=list(scores.sort_values(by=['avg_score'],ascending=False).head(5).mutant)
@@ -87,28 +119,73 @@ def suggest_mutations(scores):
   top_mutants_recos = [top_mutant+" ("+str(round(top_mutant_fitness,4))+")" for (top_mutant,top_mutant_fitness) in zip(top_mutants,top_mutants_fitness)]
   # sorted_mutant_df = pd.DataFrame(list(zip(top_mutants, top_mutants_fitness)), columns =['top_mutants', 'top_mutants_score'])
   mutant_recos = "The single mutants with highest predicted fitness are (positive scores indicate fitness increase Vs starting sequence, negative scores indicate fitness decrease):\n {} \n\n".format(", ".join(top_mutants_recos))
-  #Best positions
-  positive_scores = scores[scores.avg_score > 0]
-  positive_scores_position_avg = positive_scores.groupby(['position']).mean(numeric_only=True)
-  top_positions=list(positive_scores_position_avg.sort_values(by=['avg_score'],ascending=False).head(5).index.astype(str))
-  position_recos = "The positions with the highest average fitness increase are (only positions with at least one fitness increase are considered):\n {} \n\n".format(", ".join(top_positions))
-  return print(intro_message+mutant_recos+position_recos)
+  if not multi:
+    #Best positions
+    positive_scores = scores[scores.avg_score > 0]
+    positive_scores_position_avg = positive_scores.groupby(['position']).mean(numeric_only=True)
+    top_positions=list(positive_scores_position_avg.sort_values(by=['avg_score'],ascending=False).head(5).index.astype(str))
+    position_recos = "The positions with the highest average fitness increase are (only positions with at least one fitness increase are considered):\n {} \n\n".format(", ".join(top_positions))
+    return print(intro_message+mutant_recos+position_recos)
+  else:
+    return print(intro_message+mutant_recos)
 
-def check_valid_mutant(sequence,mutant,AA_vocab=AA_vocab):
+def check_valid_mutant(sequence,mutant,AA_vocab=AA_vocab, multi_mutant=False):
   valid = True
-  try:
-    from_AA, position, to_AA = mutant[0], int(mutant[1:-1]), mutant[-1]
-  except:
-    valid = False
-  if sequence[position-1]!=from_AA: valid=False
-  if position<1 or position>len(sequence): valid=False
-  if to_AA not in AA_vocab: valid=False
+  # print("Original Sequence: ", sequence)
+  # print("Mutation: ", mutant)
+  if multi_mutant:
+    mutant_record = {}
+    mutants = mutant.split(':')
+    for index, mutant in enumerate(mutants):
+      try:
+        from_AA, position, to_AA = mutant[0], int(mutant[1:-1]), mutant[-1]
+      except:
+        AssertionError(f"Invalid mutant {mutant}")
+      mutant_record[index] = mutant
+      tmp_list = []
+      tmp_mutant_record = mutant_record.copy()
+      tmp_mutant_record.popitem()
+      for key, value in tmp_mutant_record.items():
+        if int(value[1:-1]) == position:
+          tmp_list.append(key)
+      last_index = max(tmp_list) if len(tmp_list) > 0 else None
+
+      # check if range is valid and mutation is in AA_vocab
+      assert int(mutant_record[index][1:-1])>=1 and int(mutant_record[index][1:-1])<=len(sequence),f"position {int(mutant_record[index][1:-1])} is out of range"
+      assert mutant_record[index][-1] in AA_vocab, f"to_AA {mutant_record[index][-1]} is not in AA_vocab"
+      # check if from_AA is consistent with previous mutant
+      if last_index is not None:
+        assert mutant_record[last_index][-1] == from_AA, f"To_AA ({mutant_record[last_index][-1]} in {last_index+1}) and From_AA ({from_AA} in {index+1}) are not consistent"
+      else:
+      # elif sequence[int(mutant_record[index][1:-1])-1]!=from_AA:
+        # check if from_AA is consistent with sequence
+        assert sequence[int(mutant_record[index][1:-1])-1]==from_AA, f"from_AA {from_AA} at {position} is not consistent with AA in sequence {sequence[int(mutant_record[index][1:-1])-1]} at position {int(mutant_record[index][1:-1])}"
+
+  else:
+    try:
+      from_AA, position, to_AA = mutant[0], int(mutant[1:-1]), mutant[-1]
+    except:
+      valid = False
+    assert sequence[position-1]==from_AA, f"from_AA {from_AA} is not consistent with sequence AA {sequence[position-1]}"
+    assert position>=1 or position<=len(sequence), f"position {position} is out of range"
+    assert to_AA in AA_vocab, f"to_AA {to_AA} is not in AA_vocab"
   return valid
 
 def get_mutated_protein(sequence,mutant):
-  assert check_valid_mutant(sequence,mutant), "The mutant is not valid"
   mutated_sequence = list(sequence)
-  mutated_sequence[int(mutant[1:-1])-1]=mutant[-1]
+  multi_mutant=True if len(mutant.split(':'))>1 else False
+  if multi_mutant:
+    print("multi_mutant detected")
+    assert check_valid_mutant(sequence,mutant, multi_mutant=True), "The mutant is not valid"
+    for m in mutant.split(':'):
+      from_AA, position, to_AA = m[0], int(m[1:-1]), m[-1]
+      mutated_sequence[position-1]=to_AA
+    return ''.join(mutated_sequence)
+  else:
+    print("single mutant detected")
+    assert check_valid_mutant(sequence,mutant), "The mutant is not valid"
+    from_AA, position, to_AA = mutant[0], int(mutant[1:-1]), mutant[-1]
+    mutated_sequence[position-1]=to_AA
   return ''.join(mutated_sequence)
 
 def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer, with_heatmap=True):
@@ -150,7 +227,41 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
       score_heatmaps.append(create_scoring_matrix_visual(scores,sequence,image_index,window_start,window_end,AA_vocab))
       window_start += max_number_positions_per_heatmap
       window_end = min(mutation_range_end,window_start+max_number_positions_per_heatmap-1)
-  return score_heatmaps, suggest_mutations(scores), scores
+  return score_heatmaps, suggest_mutations(scores), scores, all_single_mutants
+
+def score_and_create_matrix_all_extra(sequence:str,extra_mutations:int,sampled_mutations:pd.DataFrame, last_DMS:pd.DataFrame,mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer):
+  if mutation_range_start is None: mutation_range_start=1
+  if mutation_range_end is None: mutation_range_end=len(sequence)
+  assert len(sequence) > 0, "no sequence entered"
+  assert mutation_range_start <= mutation_range_end, "mutation range is invalid"
+  if model_type=="Small":
+    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Small")
+  elif model_type=="Medium":
+    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Medium")
+  elif model_type=="Large":
+    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Large")
+  if torch.cuda.is_available():
+    model.cuda()
+    print("Inference will take place on GPU")
+  else:
+    print("Inference will take place on CPU")
+  model.config.tokenizer = tokenizer
+  last_mutation_round_DMS = last_DMS
+  print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {extra_mutations} rounds in total")
+  assert len(last_mutation_round_DMS['mutant'][0].split(':')) == extra_mutations-1, "Mutation step not consistent with previous mutation round"
+  all_extra_mutants = generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
+  extra_mutants = trim_DMS(DMS_data=all_extra_mutants, sampled_mutants=sampled_mutations, mutation_rounds=extra_mutations)
+  scores = model.score_mutants(DMS_data=extra_mutants, 
+                                    target_seq=sequence, 
+                                    scoring_mirror=scoring_mirror, 
+                                    batch_size_inference=batch_size_inference,  
+                                    num_workers=num_workers, 
+                                    indel_mode=False
+                                    )
+  scores = pd.merge(scores,extra_mutants,on="mutated_sequence",how="left")
+  # scores["position"]=scores["mutant"].map(lambda x: int(x[1:-1]))
+  # scores["target_AA"] = scores["mutant"].map(lambda x: x[-1])
+  return suggest_mutations(scores, multi=True), scores, extra_mutants
 
 def extract_sequence(example):
   label, taxon, sequence = example
@@ -160,4 +271,4 @@ def clear_inputs(protein_sequence_input,mutation_range_start,mutation_range_end)
   protein_sequence_input = ""
   mutation_range_start = None
   mutation_range_end = None
-  return protein_sequence_input,mutation_range_start,mutation_range_end
+  return protein_sequence_input,mutation_range_start,mutation_range_end, extra_mutants

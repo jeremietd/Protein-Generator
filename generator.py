@@ -64,7 +64,7 @@ while len(generated_sequence) < sequence_num:
     while iteration < evolution_cycles:
         print(f"Sequence {len(generated_sequence) + 1} of {sequence_num}, Iteration {iteration + 1} of {evolution_cycles}")
         # 1. Get scores of suggested mutation
-        score_heatmap, suggested_mutation, scores = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
+        score_heatmap, suggested_mutation, scores, _ = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
                                                                                     model, 
                                                                                     scoring_mirror=args.use_scoring_mirror, 
                                                                                     batch_size_inference=args.batch, 
@@ -83,8 +83,8 @@ while len(generated_sequence) < sequence_num:
         # Save scores
         if args.save_scores:
             save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), "output_scores.csv")
-            pd.DataFrame(scores, columns =['score_scores']).to_csv(save_path_scores)
-            print(f"Results saved to {save_path_scores}")
+            scores.to_csv(save_path_scores)
+            print(f"Scores saved to {save_path_scores}")
 
         # 2. Sample mutation from suggested mutation scores
         final_sampler = temperature_sampler(args.temperature)

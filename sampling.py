@@ -15,7 +15,7 @@ class temperature_sampler:
 # Modified version of sampling for DataFrame containing probabilities
 
 # Top-k sampling
-def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(temperature=1.0)):
+def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(temperature=1.0), multi=False):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
   zeros = raw_score.new_ones(raw_score.shape) * float('-inf')
@@ -24,10 +24,19 @@ def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(t
   
   sampled_score = sampler(zeros).item()
 
-  return scores['mutant'][sampled_score]
+  if multi:
+    p_list = []
+    for index, value in enumerate(zeros.tolist()): 
+      if value != float("-inf"):
+        # print(value) 
+        p_list.append(index)
+    # print(p_list)
+    return scores.iloc[p_list]
+  else:
+    return scores['mutant'][sampled_score]
 
 # Typical sampling
-def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperature_sampler(temperature=1.0)):
+def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperature_sampler(temperature=1.0), multi=False):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
   # calculate entropy
@@ -49,10 +58,20 @@ def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperat
 
   raw_score = raw_score.masked_fill(indices_to_remove, float("-inf"))
   sampled_score = sampler(raw_score).item()
-  return scores['mutant'][sampled_score]
+  # return res
+  if multi:
+    p_list = []
+    for index, value in enumerate(raw_score.tolist()): 
+      if value != float("-inf"):
+        # print(value) 
+        p_list.append(index)
+    # print(p_list)
+    return scores.iloc[p_list]
+  else:
+    return scores['mutant'][sampled_score]
 
 # Top-p sampling
-def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler(temperature=1.0)):
+def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler(temperature=1.0), multi=False):
   raw_score = torch.tensor(scores['avg_score'].values)
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
   
@@ -68,7 +87,16 @@ def top_p_sampling(scores: pd.DataFrame, p: float, sampler = temperature_sampler
   sampled_score = sampler(raw_score).item()
 
   # return res
-  return scores['mutant'][sampled_score]
+  if multi:
+    p_list = []
+    for index, value in enumerate(raw_score.tolist()): 
+      if value != float("-inf"):
+        # print(value) 
+        p_list.append(index)
+    # print(p_list)
+    return scores.iloc[p_list]
+  else:
+    return scores['mutant'][sampled_score]
 
 # Mirostat Helper Functions
 def estimate_s(prob):
@@ -90,7 +118,7 @@ def compute_k(n,s,tau):
     return k
 
 # Mirostat Sampling
-def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperature_sampler(temperature=1.0), vocab=AA_vocab):
+def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperature_sampler(temperature=1.0), vocab=AA_vocab, multi=False):
   max_surprise = 2*tau
   n = len(vocab)
 
@@ -111,4 +139,9 @@ def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperatu
   prob_topk = sorted_logits
   sampled_score = sampler(prob_topk).item()
 
-  return scores['mutant'][sampled_score]
+  if multi:
+    return scores
+    # return scores['mutant']
+  else:
+    sampled_score = sampler(prob_topk).item()
+    return scores['mutant'][sampled_score]
