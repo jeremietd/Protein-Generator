@@ -63,6 +63,7 @@ while len(generated_sequence) < sequence_num:
 
     while iteration < evolution_cycles:
         print(f"Sequence {len(generated_sequence) + 1} of {sequence_num}, Iteration {iteration + 1} of {evolution_cycles}")
+        print("=========================================")
         # 1. Get scores of suggested mutation
         score_heatmap, suggested_mutation, scores, _ = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
                                                                                     model, 
@@ -111,6 +112,7 @@ while len(generated_sequence) < sequence_num:
         print("Original Sequence: ", seq)
         print("Mutation: ", mutation)
         print("Mutated Sequence: ", mutated_sequence)
+        print("=========================================")
 
         seq = mutated_sequence
 
