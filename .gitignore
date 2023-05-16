@@ -10,3 +10,8 @@ tranception/utils/*.pyc
 generated_sequence/**/*.fasta
 
 output_scores.csv
+
+**/.DS_Store
+**/protein_bert.egg-info
+**/original_weights
+fine_tuned_saved_model

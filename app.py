@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from tensorflow import keras
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
 tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "tranception/utils/tokenizers/Basic_tokenizer"),
@@ -206,6 +207,7 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
     print("Inference will take place on CPU")
   model.config.tokenizer = tokenizer
   all_single_mutants = create_all_single_mutants(sequence,AA_vocab,mutation_range_start,mutation_range_end)
+  print("Single variants generated")
   scores = model.score_mutants(DMS_data=all_single_mutants, 
                                     target_seq=sequence, 
                                     scoring_mirror=scoring_mirror, 
@@ -213,6 +215,7 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
                                     num_workers=num_workers, 
                                     indel_mode=False
                                     )
+  print("Single scores computed")
   scores = pd.merge(scores,all_single_mutants,on="mutated_sequence",how="left")
   scores["position"]=scores["mutant"].map(lambda x: int(x[1:-1]))
   scores["target_AA"] = scores["mutant"].map(lambda x: x[-1])
@@ -229,7 +232,7 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
       window_end = min(mutation_range_end,window_start+max_number_positions_per_heatmap-1)
   return score_heatmaps, suggest_mutations(scores), scores, all_single_mutants
 
-def score_and_create_matrix_all_extra(sequence:str,extra_mutations:int,sampled_mutations:pd.DataFrame, last_DMS:pd.DataFrame,mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer):
+def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer):
   if mutation_range_start is None: mutation_range_start=1
   if mutation_range_end is None: mutation_range_end=len(sequence)
   assert len(sequence) > 0, "no sequence entered"
@@ -246,11 +249,11 @@ def score_and_create_matrix_all_extra(sequence:str,extra_mutations:int,sampled_m
   else:
     print("Inference will take place on CPU")
   model.config.tokenizer = tokenizer
-  last_mutation_round_DMS = last_DMS
-  print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {extra_mutations} rounds in total")
-  assert len(last_mutation_round_DMS['mutant'][0].split(':')) == extra_mutations-1, "Mutation step not consistent with previous mutation round"
-  all_extra_mutants = generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
-  extra_mutants = trim_DMS(DMS_data=all_extra_mutants, sampled_mutants=sampled_mutations, mutation_rounds=extra_mutations)
+  # last_mutation_round_DMS = last_DMS
+  # print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {extra_mutations} rounds in total")
+  # assert len(last_mutation_round_DMS['mutant'][0].split(':')) == extra_mutations-1, "Mutation step not consistent with previous mutation round"
+  # all_extra_mutants = generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
+  # extra_mutants = trim_DMS(DMS_data=all_extra_mutants, sampled_mutants=sampled_mutations, mutation_rounds=extra_mutations)
   scores = model.score_mutants(DMS_data=extra_mutants, 
                                     target_seq=sequence, 
                                     scoring_mirror=scoring_mirror, 
@@ -258,6 +261,7 @@ def score_and_create_matrix_all_extra(sequence:str,extra_mutations:int,sampled_m
                                     num_workers=num_workers, 
                                     indel_mode=False
                                     )
+  print("Scoring done")
   scores = pd.merge(scores,extra_mutants,on="mutated_sequence",how="left")
   # scores["position"]=scores["mutant"].map(lambda x: int(x[1:-1]))
   # scores["target_AA"] = scores["mutant"].map(lambda x: x[-1])
@@ -272,3 +276,20 @@ def clear_inputs(protein_sequence_input,mutation_range_start,mutation_range_end)
   mutation_range_start = None
   mutation_range_end = None
   return protein_sequence_input,mutation_range_start,mutation_range_end, extra_mutants
+
+def predict_proteinBERT(model, DMS, input_encoder, top_n, batch_size):
+  seqs = DMS["mutated_sequence"]
+  seq_len = 512
+
+  X = input_encoder.encode_X(seqs, seq_len)
+  y_pred = model.predict(X, batch_size = batch_size)
+
+  DMS['prediction'] = y_pred
+  DMS = DMS.sort_values(by = 'prediction', ascending = False, ignore_index = True)
+  DMS = DMS.head(top_n)
+  return DMS[['mutated_sequence', 'mutant']]
+
+def load_savedmodel(model_path):
+  model = keras.models.load_model(model_path)
+  return model
+

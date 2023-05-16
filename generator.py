@@ -7,7 +7,7 @@ import util
 from sampling import top_k_sampling, temperature_sampler, top_p_sampling, typical_sampling, mirostat_sampling
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--sequence', type=str, choices=["mdh_esm", "mdh_esm_2", "mdh_gan"], default='mdh_esm', help='Sequence to do mutation or DE')
+parser.add_argument('--sequence', type=str, choices=["mdh_esm", "mdh_esm_2", "avGFP"], default='mdh_esm', help='Sequence to do mutation or DE')
 parser.add_argument('--mutation_start', type=int, default=None, help='Mutation start position')
 parser.add_argument('--mutation_end', type=int, default=None, help='Mutation end position')
 parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], default='small', help='Tranception model size')
@@ -37,7 +37,7 @@ tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(
 
 example_sequence = {'MDH_A0A075B5H0': 'MTQRKKISLIGAGNIGGTLAHLIAQKELGDVVLFDIVEGMPQGKALDISHSSPIMGSNVKITGTNNYEDIKGSDVVIITAGIPRKPGKSDKEWSRDDLLSVNAKIMKDVAENIKKYCPNAFVIVVTNPLDVMVYVLHKYSGLPHNKVCGMAGVLDSSRFRYFLAEKLNVSPNDVQAMVIGGHGDTMVPLTRYCTVGGIPLTEFIKQGWITQEEIDEIVERTRNAGGEIVNLLKTGSAYFAPAASAIEMAESYLKDKKRILPCSAYLEGQYGVKDLFVGVPVIIGKNGVEKIIELELTEEEQEMFDKSVESVRELVETVKKLNALEHHHHHH',
                     'MDH_A0A2V9QQ45': 'MRKKVTIVGSGNVGATAAQRIVDKELADVVLIDIIEGVPQGKGLDLLQSGPIEGYDSHVLGTNDYKDTANSDIVVITAGLPRRPGMSRDDLLIKNYEIVKGVTEQVVKYSPHSILIVVSNPLDAMVQTAFKISGFPKNRVIGMAGVLDSARFRTFIAMELNVSVENIHAFVLGGHGDTMVPLPRYSTVAGIPITELLPRERIDALVKRTRDGGAEIVGLLKTGSAYYAPSAATVEMVEAIFKDKKKILPCAAYLEGEYGISGSYVGVPVKLGKSGVEEIIQIKLTPEENAALKKSANAVKELVDIIKV',
-                    'MDH_A0A522AU97': 'MNRPRVTVVGAGNVGATTAQRIAEAGLADVVLVDIVEGLPQGKALDLAEAAPVMGHDARITGTNDYADTAGSSIVVVTSGLARQPGMSRDDLLAKNAGIVRSVVEQAVKHSPDCILIIVTNPLDAMCHVAMEASGFPRERVIGMAGVLDSARFRTFIAMELGVSVEDTHAFVLGGHGDTMVPLPRYSTVAGIPITELMTPERVAALVDRTANGGAEIVALLKAGSAYYAPAASTYEMVDAILGDRKRVLPCAVHLEGEYGVNGLFVGVPVVLGARGMERIIEIDLTAEENTAFQRSAAAVQELVDKLHV'}
+                    'avGFP': 'MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK'}
 
 mutation_start = args.mutation_start
 mutation_end = args.mutation_end
@@ -57,9 +57,9 @@ while len(generated_sequence) < sequence_num:
     elif args.sequence == 'mdh_esm_2':
         seq = example_sequence.get('MDH_A0A2V9QQ45')
         sequence_id = 'MDH_A0A2V9QQ45'
-    elif args.sequence == 'mdh_gan':
-        seq = example_sequence.get('MDH_A0A522AU97')
-        sequence_id = 'MDH_A0A522AU97'
+    elif args.sequence == 'avGFP':
+        seq = example_sequence.get('avGFP')
+        sequence_id = 'avGFP'
 
     while iteration < evolution_cycles:
         print(f"Sequence {len(generated_sequence) + 1} of {sequence_num}, Iteration {iteration + 1} of {evolution_cycles}")

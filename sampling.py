@@ -16,24 +16,19 @@ class temperature_sampler:
 
 # Top-k sampling
 def top_k_sampling(scores: pd.DataFrame, k: int, sampler = temperature_sampler(temperature=1.0), multi=False):
-  raw_score = torch.tensor(scores['avg_score'].values)
+  if multi:
+    scores = scores.sort_values(by=['avg_score'], ascending=False)
+    scores = scores.reset_index(drop=True)
+    scores = scores.iloc[:k]
+    return scores
+  raw_score = torch.tensor(scores['avg_score'].values, device='cuda:0')
   raw_score = torch.nan_to_num(raw_score, float("-inf"))
   zeros = raw_score.new_ones(raw_score.shape) * float('-inf')
   values, indices = torch.topk(raw_score, k=k, dim=-1)
   zeros.scatter_(-1, indices, values)
   
   sampled_score = sampler(zeros).item()
-
-  if multi:
-    p_list = []
-    for index, value in enumerate(zeros.tolist()): 
-      if value != float("-inf"):
-        # print(value) 
-        p_list.append(index)
-    # print(p_list)
-    return scores.iloc[p_list]
-  else:
-    return scores['mutant'][sampled_score]
+  return scores['mutant'][sampled_score]
 
 # Typical sampling
 def typical_sampling(scores: pd.DataFrame, mass: float = 0.9, sampler = temperature_sampler(temperature=1.0), multi=False):
@@ -103,11 +98,12 @@ def estimate_s(prob):
   result = 0
   num = 0
   den = 0
-  for i in range(100):
+  n = len(prob) if len(prob) < 100 else 100
+  for i in range(0, n-1):
     b = prob[i]/prob[i+1]
     t = (i+2)/(i+1)
-    num += math.log(b)*math.log(t)
-    den += math.log(t)**2
+    num += math.log(b if b>0 else 1)*math.log(t if t>0 else 1)
+    den += math.log(t if t>0 else 1)**2
   return num/den
 
 
