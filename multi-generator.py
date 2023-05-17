@@ -54,7 +54,7 @@ generated_sequence = []
 sequence_iteration = []
 generated_sequence_name = []
 
-assert args.intermediate_sampling_threshold <= 100, "Intermediate sampling threshold cannot be greater than 100!"
+assert args.intermediate_threshold <= 100, "Intermediate sampling threshold cannot be greater than 100!"
 if args.use_proteinbert:
     assert args.saved_model_dir is not None, "Please specify the saved model directory for ProteinBERT!"
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
