@@ -100,7 +100,10 @@ def estimate_s(prob):
   den = 0
   n = len(prob) if len(prob) < 100 else 100
   for i in range(0, n-1):
-    b = prob[i]/prob[i+1]
+    try:
+      b = prob[i]/prob[i+1]
+    except ZeroDivisionError:
+      b = 0
     t = (i+2)/(i+1)
     num += math.log(b if b>0 else 1)*math.log(t if t>0 else 1)
     den += math.log(t if t>0 else 1)**2
