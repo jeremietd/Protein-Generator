@@ -93,7 +93,7 @@ while len(generated_sequence) < sequence_num:
             print(f"Mutation {mutation_count} of {args.mutations}")
             # First Mutation
             if mutation_count == 1:
-                # 1. Get scores of suggested mutation
+                # 1. Generate and score suggested mutation
                 score_heatmap, suggested_mutation, scores, single_DMS = app.score_and_create_matrix_all_singles(seq, mutation_start, mutation_end, 
                                                                                             model, 
                                                                                             scoring_mirror=args.use_scoring_mirror, 
@@ -117,19 +117,20 @@ while len(generated_sequence) < sequence_num:
                     scores.to_csv(save_path_scores)
                     print(f"Scores saved to {save_path_scores}")
 
-                # 2. Sample mutation from suggested mutation scores
+                # 2. Define intermediate sampling threshold
                 final_sampler = temperature_sampler(args.temperature)
                 intermediate_sampling_threshold = args.intermediate_threshold
                 assert intermediate_sampling_threshold > 0, "Intermediate sampling threshold must be greater than 0!"
             
             # Subsequent Mutations
             if mutation_count > 1 and mutation_count < args.mutations:
-
+                # 1. Generate extra mutations
                 last_mutation_round_DMS = last_round_DMS
                 print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {mutation_count} rounds in total")
                 assert len(last_mutation_round_DMS['mutant'][0].split(':')) == mutation_count-1, "Mutation step not consistent with previous mutation round"
                 all_extra_mutants = app.generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
                 
+                # 2. Sample extra mutations
                 if args.use_proteinbert:
                     all_extra_mutants = all_extra_mutants.sample(n=100)
                     extra_mutants = app.predict_proteinBERT(model=proteinbert_model, DMS=all_extra_mutants,input_encoder=input_encoder, top_n=intermediate_sampling_threshold, batch_size=128)
@@ -139,7 +140,7 @@ while len(generated_sequence) < sequence_num:
                     extra_mutants = trimmed.sample(n=intermediate_sampling_threshold)
                 print(f"Using {len(extra_mutants)} variants for scoring")
 
-                # 1. Get scores of suggested mutation
+                # 3. Get scores of sampled mutation
                 suggested_mutation, scores, extra_DMS = app.score_multi_mutations(seq,
                                                                                 extra_mutants=extra_mutants,
                                                                                 mutation_range_start=mutation_start, 
@@ -155,27 +156,24 @@ while len(generated_sequence) < sequence_num:
                 last_round_DMS = extra_DMS
                 # Save scores
                 if args.save_scores:
-                    save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"output_scores_round_{extra_mutation_rounds}.csv")
+                    save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"output_scores_round_{mutation_count}.csv")
                     scores.to_csv(save_path_scores)
                     print(f"Scores saved to {save_path_scores}")
 
-                # 2. Intermediate sample mutation from suggested mutation scores
+                # 4. Define intermediate sampling threshold
                 final_sampler = temperature_sampler(args.temperature)
                 intermediate_sampling_threshold = args.intermediate_threshold
                 assert intermediate_sampling_threshold > 0, "Intermediate sampling threshold must be greater than 0!"
 
-                # if not args.use_proteinbert:
-                #     print(f"Using Top-{intermediate_sampling_threshold} as intermediate sampling strategy")
-                #     mutation = top_k_sampling(scores, k=int(intermediate_sampling_threshold), sampler=final_sampler, multi=True)
-
             # Last Mutation
             if mutation_count == args.mutations:
-                # 1. Get scores of suggested mutation
+                # 1. Generate extra mutations
                 last_mutation_round_DMS = last_round_DMS
                 print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {mutation_count} rounds in total")
                 assert len(last_mutation_round_DMS['mutant'][0].split(':')) == mutation_count-1, "Mutation step not consistent with previous mutation round"
                 all_extra_mutants = app.generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
 
+                # 2. Sample from extra mutations
                 if args.use_proteinbert:
                     all_extra_mutants = all_extra_mutants.sample(n=100)
                     extra_mutants = app.predict_proteinBERT(model=proteinbert_model, DMS=all_extra_mutants,input_encoder=input_encoder, top_n=intermediate_sampling_threshold, batch_size=128)
@@ -185,7 +183,7 @@ while len(generated_sequence) < sequence_num:
                     extra_mutants = trimmed.sample(n=intermediate_sampling_threshold)
                 print(f"Using {len(extra_mutants)} variants for scoring")
 
-                # 1. Get scores of suggested mutation
+                # 3. Get scores of sampled mutation
                 suggested_mutation, scores, extra_DMS = app.score_multi_mutations(seq,
                                                                                 extra_mutants=extra_mutants,
                                                                                 mutation_range_start=mutation_start, 
@@ -200,11 +198,11 @@ while len(generated_sequence) < sequence_num:
 
                 # Save scores
                 if args.save_scores:
-                    save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"output_scores_round_{extra_mutation_rounds}.csv")
+                    save_path_scores = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"output_scores_round_{mutation_count}.csv")
                     scores.to_csv(save_path_scores)
                     print(f"Scores saved to {save_path_scores}")
 
-                # 2. Final Sampling mutation from suggested mutation scores
+                # 4. Final Sampling mutation from suggested mutation scores
                 final_sampler = temperature_sampler(args.temperature)
                 sampling_strat = args.sampling_method
                 sampling_threshold = args.sampling_threshold
@@ -223,7 +221,7 @@ while len(generated_sequence) < sequence_num:
                     raise ValueError(f"Sampling strategy {sampling_strat} not supported")
                 print(f"Using {sampling_strat} as final sampling strategy with threshold {sampling_threshold}")
 
-        # 3. Get Mutated Sequence
+        # Get Mutated Sequence
         mutated_sequence = app.get_mutated_protein(seq, mutation)
 
         print("Original Sequence: ", seq)
