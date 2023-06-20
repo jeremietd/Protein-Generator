@@ -143,7 +143,7 @@ while len(generated_sequence) < sequence_num:
 generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration, 'mutations': mutation_list, 'time': generation_duration})
 
 if args.save_df:
-    save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.csv".format(args.output_name))
+    save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_metadata/{}.csv".format(args.output_name))
     os.makedirs(os.path.dirname(os.path.realpath(save_path))) if not os.path.exists(os.path.dirname(os.path.realpath(save_path))) else None
     generated_sequence_df.to_csv(save_path, index=False)
     print(f"Generated sequences saved to {save_path}")
