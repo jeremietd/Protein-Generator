@@ -8,6 +8,7 @@ tranception/utils/__pycache__
 tranception/utils/*.pyc
 
 generated_sequence/**/*.fasta
+generated_sequence/**/*.csv
 
 output_scores.csv
 

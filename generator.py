@@ -4,7 +4,8 @@ from transformers import PreTrainedTokenizerFast
 import pandas as pd
 import os
 import util
-from sampling import top_k_sampling, temperature_sampler, top_p_sampling, typical_sampling, mirostat_sampling
+from sampling import top_k_sampling, temperature_sampler, top_p_sampling, typical_sampling, mirostat_sampling, random_sampling
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sequence', type=str, choices=["mdh_esm", "mdh_esm_2", "avGFP"], default='mdh_esm', help='Sequence to do mutation or DE')
@@ -18,12 +19,13 @@ parser.add_argument('--num_workers', type=int, default=4, help='Number of worker
 parser.add_argument('--with_heatmap', action='store_true', help='Whether to generate heatmap')
 parser.add_argument('--save_scores', action='store_true', help='Whether to save scores')
 
-parser.add_argument('--sampling_method', type=str, choices=['top_k', 'top_p', 'typical', 'mirostat'], required=True, help='Sampling method')
+parser.add_argument('--sampling_method', type=str, choices=['top_k', 'top_p', 'typical', 'mirostat', 'random', 'greedy'], required=True, help='Sampling method')
 parser.add_argument('--sampling_threshold', type=float, required=True, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
 parser.add_argument('--temperature', type=float, default=1.0, help='Temperature for final sampling; 1.0 equals to random sampling')
 parser.add_argument('--sequence_num', type=int, required=True, help='Number of sequences to generate')
 parser.add_argument('--evolution_cycles', type=int, required=True, help='Number of evolution cycles per generated sequence')
 parser.add_argument('--output_name', type=str, required=True, help='Output file name (Just name with no extension!)')
+parser.add_argument('--save_df', action='store_true', help='Whether to save the dataframe')
 args = parser.parse_args()
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
@@ -47,6 +49,8 @@ evolution_cycles = args.evolution_cycles
 generated_sequence = []
 sequence_iteration = []
 generated_sequence_name = []
+mutation_list = []
+generation_duration = []
 
 while len(generated_sequence) < sequence_num:
 
@@ -60,6 +64,8 @@ while len(generated_sequence) < sequence_num:
     elif args.sequence == 'avGFP':
         seq = example_sequence.get('avGFP')
         sequence_id = 'avGFP'
+    start_time = time.time()
+    mutation_history = []
 
     while iteration < evolution_cycles:
         print(f"Sequence {len(generated_sequence) + 1} of {sequence_num}, Iteration {iteration + 1} of {evolution_cycles}")
@@ -102,12 +108,17 @@ while len(generated_sequence) < sequence_num:
             mutation = typical_sampling(scores, mass=float(sampling_threshold), sampler=final_sampler)
         elif sampling_strat == 'mirostat':
             mutation = mirostat_sampling(scores, tau=float(sampling_threshold), sampler=final_sampler)
+        elif sampling_strat == 'random':
+            mutation = random_sampling(scores, sampler=final_sampler)
+        elif sampling_strat == 'greedy':
+            mutation = top_k_sampling(scores, k=1, sampler=final_sampler)
         else:
             raise ValueError(f"Sampling strategy {sampling_strat} not supported")
         print(f"Using {sampling_strat} sampling strategy with threshold {sampling_threshold}")
 
         # 3. Get Mutated Sequence
         mutated_sequence = app.get_mutated_protein(seq, mutation)
+        mutation_history += [mutation]
 
         print("Original Sequence: ", seq)
         print("Mutation: ", mutation)
@@ -122,11 +133,22 @@ while len(generated_sequence) < sequence_num:
     sequence_iteration.append(iteration)
     seq_name = 'Tranception_{}_{}x_{}'.format(sequence_id, iteration, len(generated_sequence))
     generated_sequence_name.append(seq_name)
+    mutation_list.append(';'.join(mutation_history))
+    generation_time = time.time() - start_time
+    generation_duration.append(generation_time)
+    print(f"Sequence {len(generated_sequence)} of {sequence_num} generated in {generation_time} seconds with {iteration} evolution cycles")
+    print("=========================================")
     
 
-generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration})
+generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration, 'mutations': mutation_list, 'time': generation_duration})
+
+if args.save_df:
+    save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.csv".format(args.output_name))
+    os.makedirs(os.path.dirname(os.path.realpath(save_path))) if not os.path.exists(os.path.dirname(os.path.realpath(save_path))) else None
+    generated_sequence_df.to_csv(save_path, index=False)
+    print(f"Generated sequences saved to {save_path}")
+
 save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_sequence/{}.fasta".format(args.output_name))
 os.makedirs(os.path.dirname(os.path.realpath(save_path))) if not os.path.exists(os.path.dirname(os.path.realpath(save_path))) else None
-
 util.save_as_fasta(generated_sequence_df, save_path)
 print(f"Generated sequences saved to {save_path}")

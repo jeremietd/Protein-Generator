@@ -144,3 +144,14 @@ def mirostat_sampling(scores: pd.DataFrame, tau:float = 3.0, sampler = temperatu
   else:
     sampled_score = sampler(prob_topk).item()
     return scores['mutant'][sampled_score]
+
+# Random Sampling
+def random_sampling(scores: pd.DataFrame, sampler = temperature_sampler(temperature=1.0), multi=False):
+  raw_score = torch.tensor(scores['avg_score'].values, device='cuda:0')
+  raw_score = torch.nan_to_num(raw_score, float("-inf"))
+  sampled_score = sampler(raw_score).item()
+  
+  if multi:
+    return scores
+  else:
+    return scores['mutant'][sampled_score]
