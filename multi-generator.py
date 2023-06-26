@@ -23,8 +23,8 @@ parser.add_argument('--mutations', type=int, default=2, help='Number of mutation
 parser.add_argument('--save_scores', action='store_true', help='Whether to save scores')
 
 parser.add_argument('--sampling_method', type=str, choices=['top_k', 'top_p', 'typical', 'mirostat', 'random', 'greedy'], required=True, help='Sampling method')
-parser.add_argument('--sampling_threshold', type=float, required=True, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
-parser.add_argument('--intermediate_threshold', type=int, help='Top-K threshold for intermediate sampling')
+parser.add_argument('--sampling_threshold', type=float, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
+parser.add_argument('--intermediate_threshold', type=int, required=True, help='Top-K threshold for intermediate sampling')
 parser.add_argument('--use_quantfun', action='store_true', help='Whether to use Quantitative-Function Filtering')
 parser.add_argument('--saved_model_dir', type=str, help='ProteinBERT saved model directory')
 parser.add_argument('--temperature', type=float, default=1.0, help='Temperature for final sampling; 1.0 equals to random sampling')
@@ -57,8 +57,16 @@ sequence_iteration = []
 generated_sequence_name = []
 mutation_list = []
 generation_duration = []
+samplings = []
+subsamplings = []
+mutants = []
+samplingthreshold = []
+subsamplingthreshold = []
 
+if args.sampling_method in ['top_k', 'top_p', 'typical', 'mirostat']:
+    assert args.sampling_threshold is not None, "Sampling threshold must be specified for top_k, top_p, and mirostat sampling methods"
 assert args.intermediate_threshold <= 100, "Intermediate sampling threshold cannot be greater than 100!"
+
 if args.use_quantfun:
     assert args.saved_model_dir is not None, "Please specify the saved model directory for Quantitative Filter!"
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -248,6 +256,14 @@ while len(generated_sequence) < sequence_num:
 
     generated_sequence.append(mutated_sequence)
     sequence_iteration.append(iteration)
+    samplings.append(sampling_strat)
+    samplingthreshold.append(sampling_threshold)
+    if args.use_quantfun:
+        subsamplings.append('QFF')
+    else:
+        subsamplings.append('HPF')
+    subsamplingthreshold.append(intermediate_sampling_threshold)
+    mutants.append(mutation_count)
     seq_name = 'Tranception_{}_{}x_{}'.format(sequence_id, iteration, len(generated_sequence))
     generated_sequence_name.append(seq_name)
     mutation_list.append(';'.join(mutation_history))
@@ -257,7 +273,7 @@ while len(generated_sequence) < sequence_num:
     print("=========================================")
     
 
-generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration, 'mutations': mutation_list, 'time': generation_duration})
+generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'sampling': samplings, 'threshold': samplingthreshold, 'subsampling':subsamplings, 'subthreshold': subsamplingthreshold, 'iterations': sequence_iteration, 'mutants': mutants, 'mutations': mutation_list, 'time': generation_duration})
 
 if args.save_df:
     save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_metadata/{}.csv".format(args.output_name))

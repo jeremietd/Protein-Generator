@@ -24,6 +24,9 @@ valid_set_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
 
 train_set = pd.read_csv(train_set_file_path).dropna().drop_duplicates()
 valid_set = pd.read_csv(valid_set_file_path).dropna().drop_duplicates()
+
+assert 'seq' in train_set.columns and 'label' in train_set.columns, 'Training set must have "seq" and "label" columns.'
+assert 'seq' in valid_set.columns and 'label' in valid_set.columns, 'Validation set must have "seq" and "label" columns.'
 print(f'{len(train_set)} training set records, {len(valid_set)} validation set records.')
 
 

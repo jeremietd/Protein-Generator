@@ -20,7 +20,7 @@ parser.add_argument('--with_heatmap', action='store_true', help='Whether to gene
 parser.add_argument('--save_scores', action='store_true', help='Whether to save scores')
 
 parser.add_argument('--sampling_method', type=str, choices=['top_k', 'top_p', 'typical', 'mirostat', 'random', 'greedy'], required=True, help='Sampling method')
-parser.add_argument('--sampling_threshold', type=float, required=True, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
+parser.add_argument('--sampling_threshold', type=float, help='Sampling threshold (k for top_k, p for top_p, tau for mirostat, etc.)')
 parser.add_argument('--temperature', type=float, default=1.0, help='Temperature for final sampling; 1.0 equals to random sampling')
 parser.add_argument('--sequence_num', type=int, required=True, help='Number of sequences to generate')
 parser.add_argument('--evolution_cycles', type=int, required=True, help='Number of evolution cycles per generated sequence')
@@ -51,6 +51,14 @@ sequence_iteration = []
 generated_sequence_name = []
 mutation_list = []
 generation_duration = []
+samplings = []
+mutants = []
+subsamplings = []
+samplingtheshold = []
+subsamplingtheshold = []
+
+if args.sampling_method in ['top_k', 'top_p', 'typical', 'mirostat']:
+    assert args.sampling_threshold is not None, "Sampling threshold must be specified for top_k, top_p, and mirostat sampling methods"
 
 while len(generated_sequence) < sequence_num:
 
@@ -131,8 +139,13 @@ while len(generated_sequence) < sequence_num:
 
     generated_sequence.append(mutated_sequence)
     sequence_iteration.append(iteration)
+    samplings.append(sampling_strat)
+    samplingtheshold.append(sampling_threshold) 
     seq_name = 'Tranception_{}_{}x_{}'.format(sequence_id, iteration, len(generated_sequence))
     generated_sequence_name.append(seq_name)
+    mutants.append('1')
+    subsamplings.append('NA')
+    subsamplingtheshold.append('NA')
     mutation_list.append(';'.join(mutation_history))
     generation_time = time.time() - start_time
     generation_duration.append(generation_time)
@@ -140,7 +153,7 @@ while len(generated_sequence) < sequence_num:
     print("=========================================")
     
 
-generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'iterations': sequence_iteration, 'mutations': mutation_list, 'time': generation_duration})
+generated_sequence_df = pd.DataFrame({'name': generated_sequence_name,'sequence': generated_sequence, 'sampling': samplings, 'threshold': samplingtheshold, 'subsampling':subsamplings, 'subthreshold': subsamplingtheshold, 'iterations': sequence_iteration, 'mutants': mutants, 'mutations': mutation_list, 'time': generation_duration})
 
 if args.save_df:
     save_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "generated_metadata/{}.csv".format(args.output_name))
