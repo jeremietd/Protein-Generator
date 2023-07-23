@@ -15,7 +15,7 @@ parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], d
 parser.add_argument('--use_scoring_mirror', action='store_true', help='Whether to score the sequence from both ends')
 parser.add_argument('--batch', type=int, default=20, help='Batch size for scoring')
 parser.add_argument('--max_pos', type=int, default=50, help='Maximum number of positions per heatmap')
-parser.add_argument('--num_workers', type=int, default=4, help='Number of workers for dataloader')
+parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for dataloader')
 parser.add_argument('--with_heatmap', action='store_true', help='Whether to generate heatmap')
 parser.add_argument('--save_scores', action='store_true', help='Whether to save scores')
 
