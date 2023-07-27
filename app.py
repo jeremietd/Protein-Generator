@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from tensorflow import keras
+import itertools
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
 tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "tranception/utils/tokenizers/Basic_tokenizer"),
@@ -35,6 +36,16 @@ def create_all_single_mutants(sequence,AA_vocab=AA_vocab,mutation_range_start=No
   all_single_mutants.reset_index(inplace=True)
   all_single_mutants.columns = ['mutant','mutated_sequence']
   return all_single_mutants
+
+def extend_sequence_by_n(sequence, n: int, reference_vocab, output_sequence=True):
+  permut = ["".join(i) for i in itertools.permutations(reference_vocab, n)]
+  extend_sequence = [sequence + ext for ext in permut]
+  if output_sequence:
+    df_es = pd.DataFrame.from_dict({"mutated_sequence": extend_sequence})
+    return df_es
+  else:
+    df_ext = pd.DataFrame.from_dict({"extension": permut})
+    return df_ext
 
 def generate_n_extra_mutations(DMS_data: pd.DataFrame, extra_mutations: int, AA_vocab=AA_vocab, mutation_range_start=None, mutation_range_end=None):
     variants = DMS_data
@@ -232,11 +243,12 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
       window_end = min(mutation_range_end,window_start+max_number_positions_per_heatmap-1)
   return score_heatmaps, suggest_mutations(scores), scores, all_single_mutants
 
-def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer):
-  if mutation_range_start is None: mutation_range_start=1
-  if mutation_range_end is None: mutation_range_end=len(sequence)
-  assert len(sequence) > 0, "no sequence entered"
-  assert mutation_range_start <= mutation_range_end, "mutation range is invalid"
+def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=False):
+  if sequence is not None:
+    if mutation_range_start is None: mutation_range_start=1
+    if mutation_range_end is None: mutation_range_end=len(sequence)
+  # assert len(sequence) > 0, "no sequence entered"
+    assert mutation_range_start <= mutation_range_end, "mutation range is invalid"
   if model_type=="Small":
     model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Small")
   elif model_type=="Medium":
@@ -249,11 +261,6 @@ def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_ran
   else:
     print("Inference will take place on CPU")
   model.config.tokenizer = tokenizer
-  # last_mutation_round_DMS = last_DMS
-  # print(f"Generating 1 extra mutations after {len(last_mutation_round_DMS['mutant'][0].split(':'))} rounds to make {extra_mutations} rounds in total")
-  # assert len(last_mutation_round_DMS['mutant'][0].split(':')) == extra_mutations-1, "Mutation step not consistent with previous mutation round"
-  # all_extra_mutants = generate_n_extra_mutations(DMS_data=last_mutation_round_DMS, extra_mutations=1)
-  # extra_mutants = trim_DMS(DMS_data=all_extra_mutants, sampled_mutants=sampled_mutations, mutation_rounds=extra_mutations)
   scores = model.score_mutants(DMS_data=extra_mutants, 
                                     target_seq=sequence, 
                                     scoring_mirror=scoring_mirror, 
@@ -265,7 +272,10 @@ def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_ran
   scores = pd.merge(scores,extra_mutants,on="mutated_sequence",how="left")
   # scores["position"]=scores["mutant"].map(lambda x: int(x[1:-1]))
   # scores["target_AA"] = scores["mutant"].map(lambda x: x[-1])
-  return suggest_mutations(scores, multi=True), scores, extra_mutants
+  if AR_mode:
+    return scores, extra_mutants
+  else:
+    return suggest_mutations(scores, multi=True), scores, extra_mutants
 
 def extract_sequence(example):
   label, taxon, sequence = example
