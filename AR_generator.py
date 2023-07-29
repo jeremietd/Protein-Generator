@@ -74,7 +74,7 @@ while len(generated_sequence) < sequence_num:
         print("=========================================")
 
         if args.sampling_method == 'mcts':
-            mutation = AR_MCTS.mcts(seq, max_length=args.max_length, model_type=model, tokenizer=tokenizer, AA_vocab=AA_vocab)
+            mutation = AR_MCTS.UCT_search(seq, max_length=args.max_length, model_type=model, tokenizer=tokenizer, AA_vocab=AA_vocab)
         
         else:
             # Generate possible mutations

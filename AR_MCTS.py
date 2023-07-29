@@ -2,76 +2,71 @@ import random
 import math
 import app
 import pandas as pd
+import numpy as np
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
 
-class UCTNode:
-    def __init__(self, state, parent=None):
-        self.state = state # state is a sequence
-        self.parent = parent # parent is a node
-        self.children = [] # children is a list of nodes
-        self.is_expanded = False
-        self.visits = 0
-        self.rewards = 0
+class UCTNode():
+  def __init__(self, state, parent=None, prior=0):
+    self.state = state
+    self.is_expanded = False
+    self.parent = parent  # Optional[UCTNode]
+    self.children = {}  # Dict[move, UCTNode]
+    self.prior = prior  # float
+    self.total_value = 0  # float
+    self.number_visits = 0  # int
 
-def select(node): # TODO: Check input type requirements
-    """ Use the UCB1 formula to select a child node. Often a constant UCTK is applied so we have
-        lambda c: c.wins/c.visits + UCTK * sqrt(2*log(self.visits)/c.visits to vary the amount of
-        exploration versus exploitation.
-        Source: https://github.com/A-Malone/Monte-carlo-tree-search/blob/master/UCT.py
-    """
-    s = node
-    while node.is_expanded:
-        print("Children Node:", node.children)
-        s = sorted(node.children, key = lambda c: c.rewards/c.visits + sqrt(2*log(node.visits)/c.visits))[-1]
-    return s
+  def Q(self):  # returns float
+    return self.total_value / (1 + self.number_visits)
 
-def expand(node, AA_vocab):
-    # Implement the expansion step by adding child nodes for unexplored actions
-    node.is_expanded = True
-    extension = app.extend_sequence_by_n(node.state, 1, reference_vocab=AA_vocab, output_sequence=False)
-    next = extension.sample(1) #TODO: Random or topk?
-    next_str = next['extension'].to_string(index=False)
-    return node, UCTNode(str(next_str)) # child of root_node
+  def U(self):  # returns float
+    return (math.sqrt(self.parent.number_visits)
+        * self.prior / (1 + self.number_visits))
 
-def simulate(root_node, node, model, tokenizer, AA_vocab):
-    # Perform random simulations (rollouts) from the selected node until a terminal state is reached
-    # NextNode = expand(node, AA_vocab)
-    # print("node: ", node.state)
-    # print("Next node: ", NextNode.state)
-    root_node.children.append(node)
-    # print("Children: ", node.children)
-    seq = [root_node.state + node.state]
-    print("Sequence: ", seq)
-        
-    df_es = pd.DataFrame.from_dict({"mutated_sequence": seq})
-    results, _ = app.score_multi_mutations(sequence=None, extra_mutants=df_es, model_type=model, scoring_mirror=False, batch_size_inference=1, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
-    return results['avg_score']
+  def best_child(self):
+    return max(self.children.values(),
+               key=lambda node: node.Q() + node.U())
 
-def backpropagate(root_node, node, reward):
-    # Update the node statistics (visits and rewards) along the path from the selected node to the root
-    while node is not None:
-        node.visits += 1
-        node.rewards += reward
-        node.parent = root_node
+  def select_leaf(self):
+    current = self
+    while current.is_expanded:
+      current = current.best_child()
+    return current
 
-def mcts(root_state: str, max_length, model_type, tokenizer, AA_vocab):
-    root_node = UCTNode(root_state)
-    # Maybe expand the root node here?
+  def expand(self, child_priors):
+    self.is_expanded = True
+    for move, row in child_priors.iterrows():
+      self.add_child(move, row['avg_score'], row['mutated_sequence'])
 
-    for _ in range(max_length):
-        print("Root node: ", root_node.state)
-        selected_node = select(root_node)
+  def add_child(self, move, prior, child_seq):
+    self.children[move] = UCTNode(
+        child_seq, parent=self, prior=prior)
 
-        print("Selected node: ", selected_node.state)
-        root_node, expanded_node = expand(selected_node, AA_vocab)
+  def backup(self, value_estimate: float):
+    current = self
+    while current.parent is not None:
+      current.number_visits += 1
+      current.total_value += value_estimate
+      current = current.parent
 
-        print("Expanded node: ", expanded_node.state)
-        reward = simulate(root_node, expanded_node, model_type, tokenizer, AA_vocab)
+def UCT_search(state, max_length, model_type, tokenizer, AA_vocab=AA_vocab):
+  root = UCTNode(state)
+  for _ in range(num_reads):
+    leaf = root.select_leaf()
+    child_priors, value_estimate = Evaluate(leaf.state, model_type, tokenizer, AA_vocab)
+    leaf.expand(child_priors)
+    leaf.backup(value_estimate)
+  return max(root.children.items(),
+             key=lambda item: item[1].number_visits)
 
-        backpropagate(root_node, expanded_node, reward)
-        # root_node = expanded_node
+def Evaluate(seq, model_type, tokenizer, AA_vocab):
+    results, _ = pp.score_multi_mutations(sequence=None, extra_mutants=seq, mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
+    
+    extension = app.extend_sequence_by_n(seq, 1, AA_vocab, output_sequence=True)
+    prior, _ = pp.score_multi_mutations(sequence=None, extra_mutants=extension['mutated_sequence'], mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
+    
+    child_priors = prior
+    value_estimate = results['avg_score']
+    
+    return child_priors, value_estimate
 
-    # Return the best child node's state as the chosen action
-    best_child = max(root_node.children, key=lambda n: n.visits)
-    return root_state + best_child.state
