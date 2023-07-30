@@ -164,7 +164,7 @@ def ARrandom_sampling(scores: pd.DataFrame, sampler = ARtemperature_sampler(temp
   else:
     return scores['mutated_sequence'][sampled_score]
 
-def ARbeam_search(seq: str, scores: pd.DataFrame, beam_width: int, max_length:int, model_type, tokenizer, score_mirror=False, batch=20, max_pos=50, sampler=ARtemperature_sampler(temperature=1.0), multi=False):
+def ARbeam_search(scores: pd.DataFrame, beam_width: int, max_length:int, model_type, tokenizer, score_mirror=False, batch=20, max_pos=50, sampler=ARtemperature_sampler(temperature=1.0), multi=False):
   length = 1
   while length < max_length:
     # Get top k mutations

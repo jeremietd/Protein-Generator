@@ -56,7 +56,7 @@ subsamplingtheshold = []
 if args.sampling_method in ['top_k', 'top_p', 'typical', 'mirostat', 'beam_search']:
     assert args.sampling_threshold is not None, "Sampling threshold must be specified for top_k, top_p, typical, mirostat, and beam_search sampling methods"
 if args.sampling_method == 'beam_search' or args.sampling_method == 'mcts':
-    assert args.max_length is not None, "Maximum length must be specified for beam_search sampling method"
+    assert args.max_length is not None, "Maximum length must be specified for beam_search or MCTS sampling method"
 
 while len(generated_sequence) < sequence_num:
 
@@ -74,6 +74,8 @@ while len(generated_sequence) < sequence_num:
         print("=========================================")
 
         if args.sampling_method == 'mcts':
+            sampling_strat = args.sampling_method
+            sampling_threshold = args.max_length
             mutation = AR_MCTS.UCT_search(seq, max_length=args.max_length, model_type=model, tokenizer=tokenizer, AA_vocab=AA_vocab)
             # print("MCTS mutation: ", mutation)
         
@@ -111,7 +113,7 @@ while len(generated_sequence) < sequence_num:
                 mutation = ARtop_k_sampling(scores, k=int(sampling_threshold), sampler=final_sampler)
             elif sampling_strat == 'beam_search':
                 assert args.max_length < seq_length, "Maximum length must be less than the length of the final sequence"
-                mutation = ARbeam_search(seq, scores, beam_width=int(sampling_threshold), max_length=args.max_length, model_type=model, tokenizer=tokenizer, sampler=final_sampler) # TODO: Implement beam search
+                mutation = ARbeam_search(scores, beam_width=int(sampling_threshold), max_length=args.max_length, model_type=model, tokenizer=tokenizer, sampler=final_sampler)
             elif sampling_strat == 'top_p':
                 assert float(sampling_threshold) <= 1.0 and float(sampling_threshold) > 0, "Top-p sampling threshold must be between 0 and 1"
                 mutation = ARtop_p_sampling(scores, p=float(sampling_threshold), sampler=final_sampler)

@@ -2,6 +2,7 @@ import torch
 from torch.distributions import Categorical
 import pandas as pd
 import math
+import app
 
 AA_vocab = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -155,3 +156,27 @@ def random_sampling(scores: pd.DataFrame, sampler = temperature_sampler(temperat
     return scores
   else:
     return scores['mutant'][sampled_score]
+
+
+def beam_search(scores: pd.DataFrame, extra: int, beam_width: int, max_length:int, model_type, tokenizer, score_mirror=False, batch=20, max_pos=50, sampler=temperature_sampler(temperature=1.0), multi=False):
+  length = 1
+  while length < max_length:
+    # Get top k mutations
+    assert beam_width <= len(scores), "Beam width must be less than or equal to the number of mutations ({}).".format(len(scores))
+    scores = top_k_sampling(scores, k=beam_width, sampler=sampler, multi=True)
+    # Extend each mutation by one
+    levels = app.generate_n_extra_mutations(scores, extra, AA_vocab)
+    # levels = pd.DataFrame(columns=['mutated_sequence'])
+    # for i, row in scores.iterrows():
+    #   extension = app.extend_sequence_by_n(row['mutated_sequence'], 1, AA_vocab, output_sequence=True)
+    #   levels = pd.concat([levels, extension], ignore_index=True)
+
+    # Score each mutation
+    scores, _ = app.score_multi_mutations(sequence=None, extra_mutants=levels, model_type=model_type, scoring_mirror=score_mirror, batch_size_inference=batch, max_number_positions_per_heatmap=max_pos, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
+    length += 1
+  if length == max_length:
+    scores = top_k_sampling(scores, k=1, sampler=sampler, multi=True)
+    if multi:
+      return scores
+    else:
+      return scores['mutant'][0]
