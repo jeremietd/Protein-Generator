@@ -63,17 +63,18 @@ def UCT_search(state, max_length, extra, model_type, tokenizer, AA_vocab=AA_voca
   root = UCTNode(state)
   for _ in range(max_length):
     leaf = root.select_leaf()
-    child_priors, value_estimate = Evaluate(leaf.state, extra, model_type, tokenizer, AA_vocab)
+    child_priors, value_estimate = Evaluate(leaf.state, extra, model_type, tokenizer, AA_vocab, max_length)
     leaf.expand(child_priors)
     leaf.backup(value_estimate)
     output = max(root.children.items(), key=lambda item: item[1].number_visits)
   return output[1].move
 
-def Evaluate(seq, extra=1, model_type, tokenizer, AA_vocab):
+def Evaluate(seq, extra, model_type, tokenizer, AA_vocab, max_length):
     # df_seq = pd.DataFrame.from_dict({'mutated_sequence': [seq]})
     score_heatmap, suggested_mutation, results, _ = app.score_and_create_matrix_all_singles(seq, None, None, model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, with_heatmap=False)
     
     extension = app.generate_n_extra_mutations(results, extra, AA_vocab)
+    extension = extension.sort_values(by=['avg_score'], ascending=False, ignore_index=True).head(max_length*2)
     prior, _ = app.score_multi_mutations(sequence=None, extra_mutants=extension, mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
     
     child_priors = prior
