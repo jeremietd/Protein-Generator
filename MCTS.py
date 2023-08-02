@@ -73,8 +73,8 @@ def Evaluate(seq, extra, model_type, tokenizer, AA_vocab, max_length):
     # df_seq = pd.DataFrame.from_dict({'mutated_sequence': [seq]})
     score_heatmap, suggested_mutation, results, _ = app.score_and_create_matrix_all_singles(seq, None, None, model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, with_heatmap=False)
     
+    results = results.sort_values(by=['avg_score'], ascending=False, ignore_index=True).head(max_length*2)
     extension = app.generate_n_extra_mutations(results, extra, AA_vocab)
-    extension = extension.sort_values(by=['avg_score'], ascending=False, ignore_index=True).head(max_length*2)
     prior, _ = app.score_multi_mutations(sequence=None, extra_mutants=extension, mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
     
     child_priors = prior
