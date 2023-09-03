@@ -58,21 +58,21 @@ class UCTNode():
       current = current.parent
     print("========END OF ITERATION========")
 
-def UCT_search(state, max_length, model_type, tokenizer, AA_vocab=AA_vocab):
+def UCT_search(state, max_length, model_type, tokenizer, AA_vocab=AA_vocab, extension_factor=1):
   root = UCTNode(state)
   for _ in range(max_length):
     leaf = root.select_leaf()
-    child_priors, value_estimate = Evaluate(leaf.state, model_type, tokenizer, AA_vocab)
+    child_priors, value_estimate = Evaluate(leaf.state, model_type, tokenizer, AA_vocab, extension_factor)
     leaf.expand(child_priors)
     leaf.backup(value_estimate)
     output = max(root.children.items(), key=lambda item: item[1].number_visits)
   return output[1].state
 
-def Evaluate(seq, model_type, tokenizer, AA_vocab):
+def Evaluate(seq, model_type, tokenizer, AA_vocab, extension_factor=1):
     df_seq = pd.DataFrame.from_dict({'mutated_sequence': [seq]})
     results, _ = app.score_multi_mutations(sequence=None, extra_mutants=df_seq, mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
     
-    extension = app.extend_sequence_by_n(seq, 1, AA_vocab, output_sequence=True)
+    extension = app.extend_sequence_by_n(seq, extension_factor, AA_vocab, output_sequence=True)
     prior, _ = app.score_multi_mutations(sequence=None, extra_mutants=extension, mutation_range_start=None, mutation_range_end=None, model_type=model_type, scoring_mirror=False, batch_size_inference=20, max_number_positions_per_heatmap=50, num_workers=8, AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=True)
     
     child_priors = prior
