@@ -11,6 +11,7 @@ import AR_MCTS
 parser = argparse.ArgumentParser()
 parser.add_argument('--sequence', type=str, help='Sequence to do mutation or DE')
 parser.add_argument('--model', type=str, choices=['small', 'medium', 'large'], default='small', help='Tranception model size')
+parser.add_argument('--Tmodel', type=str, help='Tranception model path')
 parser.add_argument('--use_scoring_mirror', action='store_true', help='Whether to score the sequence from both ends')
 parser.add_argument('--batch', type=int, default=20, help='Batch size for scoring')
 parser.add_argument('--max_pos', type=int, default=50, help='Maximum number of positions per heatmap')
@@ -37,6 +38,7 @@ tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(os.path.dirname(
                                                 cls_token="[CLS]",
                                                 mask_token="[MASK]"
                                             )
+assert args.model or args.Tmodel, "Either model size or model path must be specified"
 
 model = args.model.capitalize()
 sequence_num = args.sequence_num
@@ -95,7 +97,8 @@ while len(generated_sequence) < sequence_num:
                                                         num_workers=args.num_workers, 
                                                         AA_vocab=AA_vocab, 
                                                         tokenizer=tokenizer,
-                                                        AR_mode=True)
+                                                        AR_mode=True,
+                                                        Tranception_model=args.Tmodel,)
 
             # Save scores
             if args.save_scores:

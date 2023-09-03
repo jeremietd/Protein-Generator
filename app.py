@@ -243,18 +243,23 @@ def score_and_create_matrix_all_singles(sequence,mutation_range_start=None,mutat
       window_end = min(mutation_range_end,window_start+max_number_positions_per_heatmap-1)
   return score_heatmaps, suggest_mutations(scores), scores, all_single_mutants
 
-def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=False):
+def score_multi_mutations(sequence:str, extra_mutants:pd.DataFrame, mutation_range_start=None,mutation_range_end=None,model_type="Small",scoring_mirror=False,batch_size_inference=20,max_number_positions_per_heatmap=50,num_workers=0,AA_vocab=AA_vocab, tokenizer=tokenizer, AR_mode=False, Tranception_model="./Tranception"):
   if sequence is not None:
     if mutation_range_start is None: mutation_range_start=1
     if mutation_range_end is None: mutation_range_end=len(sequence)
   # assert len(sequence) > 0, "no sequence entered"
     assert mutation_range_start <= mutation_range_end, "mutation range is invalid"
-  if model_type=="Small":
-    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Small")
-  elif model_type=="Medium":
-    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Medium")
-  elif model_type=="Large":
-    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Large")
+  try:
+    model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path=Tranception_model, local_files_only=True)
+    print("Model successfully loaded from local")
+  except:
+    print("Model not found locally, downloading from HuggingFace")
+    if model_type=="Small":
+      model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Small")
+    elif model_type=="Medium":
+      model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Medium")
+    elif model_type=="Large":
+      model = tranception.model_pytorch.TranceptionLMHeadModel.from_pretrained(pretrained_model_name_or_path="PascalNotin/Tranception_Large")
   if torch.cuda.is_available():
     model.cuda()
     print("Inference will take place on GPU")
